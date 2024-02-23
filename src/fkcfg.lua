@@ -14,7 +14,8 @@ local math		= require "math";
 local os		= require "os";
 
 local insert, tointeger = table.insert, math.tointeger;
-local function toJSONSub(b, o)
+local function
+toJSONSub(b, o)
 	local t = type(o);
 	if t == "nil" then
 		insert(b, "null");
@@ -46,9 +47,43 @@ local function toJSONSub(b, o)
 	return;
 end
 
-local function toJSON(cfg)
-	local buffer = {}
+local function
+toJSON(cfg)
+	local buffer = {};
 	local ok, err = pcall(toJSONSub, buffer, cfg);
+	return ok and table.concat(buffer), err;
+end
+
+local function
+toLuaSub(b, o)
+	local t = type(o);
+	if t == "table" then
+		if o[0] then
+			insert(b, "{");
+			for _, v in ipairs(o) do
+				toLuaSub(b, v);
+				insert(b, ",");
+			end
+			insert(b, "}");		-- trailing comma is allowed
+		else
+			insert(b, "{");
+			for k, v in pairs(o) do
+				insert(b, ([==[["%s"] = ]==]):
+					  format(tostring(k)));
+				toLuaSub(b, v);
+				insert(b, ",");
+			end
+			insert(b, "}");		-- trailing comma is allowed
+		end
+	else
+		insert(b, ("%q"):format(o));
+	end
+end
+
+local function
+toLua(cfg)
+	local buffer = {};
+	local ok, err = pcall(toLuaSub, buffer, cfg);
 	return ok and table.concat(buffer), err;
 end
 
@@ -69,9 +104,10 @@ then
 	io.stderr:write(("Script fails to run: %s"):format(ret1));
 	os.exit(-1);
 else
-	if ret2 == "json"
-	then
+	if ret2 == "json" then
 		print((toJSON(ret1)));
+	elseif ret2 == "lua" then
+		print((toLua(ret1)));
 	else
 		io.stderr:write(("Unsupported configuration format: %s"):
 				format(ret2));
